@@ -218,9 +218,14 @@ export type AnimationOptions = {
     /**
      * Default false. Needed in 3D maps to let the camera stay in a constant
      * height based on sea-level. After the animation finished the zoom-level will be recalculated in respect of
-     * the distance from the camera to the center-coordinate-altitude.
+     * the distance from the camera to the center-coordinate-altitude unless `lockTerrainZoom` is `true`.
      */
     freezeElevation?: boolean;
+
+    /**
+     * If `true`, the zoom level will not be recalculated after animation ends.
+     */
+    lockTerrainZoom?: boolean;
 };
 
 /**
@@ -540,7 +545,8 @@ export abstract class Camera extends Evented {
      */
     rotateTo(bearing: number, options?: AnimationOptions, eventData?: any): this {
         return this.easeTo(extend({
-            bearing
+            bearing,
+            lockTerrainZoom: true
         }, options), eventData);
     }
 
@@ -569,6 +575,7 @@ export abstract class Camera extends Evented {
         this.easeTo(extend({
             bearing: 0,
             pitch: 0,
+            lockTerrainZoom: true,
             duration: 1000
         }, options), eventData);
         return this;
@@ -1040,7 +1047,7 @@ export abstract class Camera extends Evented {
             this._fireMoveEvents(eventData);
 
         }, (interruptingEaseId?: string) => {
-            if (this.terrain && options.freezeElevation) this._finalizeElevation();
+            if (this.terrain && options.freezeElevation) this._finalizeElevation(!options.lockTerrainZoom);
             this._afterEase(eventData, interruptingEaseId);
         }, options as any);
 
@@ -1083,9 +1090,11 @@ export abstract class Camera extends Evented {
         this.transform.elevation = interpolates.number(this._elevationStart, this._elevationTarget, k);
     }
 
-    _finalizeElevation() {
+    _finalizeElevation(rezoom: boolean) {
         this._elevationFreeze = false;
-        this.transform.recalculateZoom(this.terrain);
+        if (rezoom) {
+            this.transform.recalculateZoom(this.terrain);
+        }
     }
 
     /**
@@ -1368,7 +1377,7 @@ export abstract class Camera extends Evented {
             this._fireMoveEvents(eventData);
 
         }, () => {
-            if (this.terrain && options.freezeElevation) this._finalizeElevation();
+            if (this.terrain && options.freezeElevation) this._finalizeElevation(!options.lockTerrainZoom);
             this._afterEase(eventData);
         }, options);
 
